@@ -1,0 +1,28 @@
+name: Daily Flight Check
+on:
+  schedule:
+    - cron: '50 23 * * *'  # 每天 UTC 23:50（即北京时间早上 7:50）自动运行
+  workflow_dispatch:      # 允许你手动点击按钮测试
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install requests playwright
+          playwright install chromium --with-deps
+
+      - name: Run check script
+        env:
+          BARK_KEY: ${{ secrets.BARK_KEY }}
+        run: python main.py
