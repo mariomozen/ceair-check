@@ -1,8 +1,10 @@
 name: Daily Flight Check
 on:
   schedule:
-    - cron: '50 23 * * *'  # 每天 UTC 23:50（即北京时间早上 7:50）自动运行
-  workflow_dispatch:      # 允许你手动点击按钮测试
+    - cron: '35 20 * * *'  # UTC 20:35 (北京时间 04:35)
+    - cron: '35 4 * * *'   # UTC 04:35 (北京时间 12:35)
+    - cron: '30 12 * * *'  # UTC 12:30 (北京时间 20:30)
+  workflow_dispatch:       # 允许手动测试
 
 jobs:
   check:
