@@ -1,9 +1,9 @@
 name: Daily Flight Check
 on:
   schedule:
-    - cron: '35 20 * * *'  # UTC 20:35 (北京时间 04:35)
-    - cron: '35 4 * * *'   # UTC 04:35 (北京时间 12:35)
-    - cron: '30 12 * * *'  # UTC 12:30 (北京时间 20:30)
+    - cron: '43 23 * * *'  # UTC 23:43 (北京时间 07:43)
+    - cron: '43 5 * * *'   # UTC 05:43 (北京时间 13:43)
+    - cron: '43 12 * * *'  # UTC 12:43 (北京时间 20:43)
   workflow_dispatch:       # 允许手动测试
 
 jobs:
