@@ -1,10 +1,7 @@
 name: Daily Flight Check
 on:
-  schedule:
-    - cron: '43 23 * * *'  # UTC 23:43 (北京时间 07:43)
-    - cron: '43 5 * * *'   # UTC 05:43 (北京时间 13:43)
-    - cron: '43 12 * * *'  # UTC 12:43 (北京时间 20:43)
-  workflow_dispatch:       # 允许手动测试
+  # 删掉了自带的 schedule 定时，全部交给 cron-job.org 外部触发
+  workflow_dispatch:       # 允许手动测试和外部 API 触发
 
 jobs:
   check:
