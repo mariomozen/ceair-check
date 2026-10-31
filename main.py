@@ -89,11 +89,19 @@ def main():
         return
 
     my_origins = {"上海": "SHA", "无锡": "WUX", "南京": "NKG", "杭州": "HGH", "嘉兴": "JXS", "南通": "NTG", "常州": "CZX"}
+    
+    # 🌟 核心修改点：在这里加入了西双版纳和北京
     my_targets = {
+        # 新疆
         "乌鲁木齐": "URC", "喀什": "KHG", "伊宁": "YIN", "库尔勒": "KRL", "阿克苏": "AKU", 
         "阿勒泰": "AAT", "库车": "KCA", "博乐": "BPL", "塔城": "TCG", "哈密": "HMI", 
         "昭苏": "ZFL", "富蕴": "FYN", "布尔津": "KJI", "吐鲁番": "TLQ", "若羌": "RQA",
-        "拉萨": "LXA", "日喀则": "RKZ", "林芝": "LZY", "昌都": "BPX", "阿里": "NGQ"
+        # 西藏
+        "拉萨": "LXA", "日喀则": "RKZ", "林芝": "LZY", "昌都": "BPX", "阿里": "NGQ",
+        # 🌟 新增：西双版纳
+        "西双版纳": "JHG",
+        # 🌟 新增：北京
+        "北京": "BJS"
     }
 
     go_routes, back_routes = [], []
@@ -106,7 +114,7 @@ def main():
     all_results = []
     request_count = 0
 
-    # 常规查票循环
+    # 常规查票循环（已包含往返西双版纳和北京）
     for config in TRIP_CONFIGS:
         trip_name = config["name"]
         tasks = [
@@ -147,39 +155,6 @@ def main():
                     else:
                         time.sleep(random.uniform(1.5, 3.0))
                     current_date += timedelta(days=7)
-
-    # ==========================================
-    # 🌟 新增：精准特殊单程查询（11.13 上海/无锡 -> 北京）
-    # ==========================================
-    print("\n开始查询特殊单程：2026-11-13 上海/无锡 -> 北京")
-    special_routes = [
-        ("上海", "SHA", "北京", "BJS"),
-        ("无锡", "WUX", "北京", "BJS")
-    ]
-    for dep_name, dep_code, arr_name, arr_code in special_routes:
-        date_str = "2026-11-13"
-        payload = {
-            "channelCode": "NzcwMQ==", "depDate": date_str, "desCityCode": arr_code,
-            "indexNo": "1", "oriCityCode": dep_code, "productCode": "YRDCCN0525",
-            "routeType": "OW", "salesChannel": "NzcwMQ=="
-        }
-        try:
-            res = requests.post(api_detail, headers=headers, json=payload, timeout=15)
-            r_data = res.json()
-            if r_data.get("success"):
-                d_map = (r_data.get("data") or {}).get("redeemableDetailMap") or {}
-                for check_dt, status in d_map.items():
-                    if check_dt == "2026-11-13" and status == "2":
-                        all_results.append({
-                            "假期": "北京单程",
-                            "出发地": dep_name,
-                            "目的地": arr_name,
-                            "日期": check_dt,
-                            "行程": "去程"
-                        })
-        except Exception:
-            pass
-        time.sleep(random.uniform(1.5, 3.0))
 
     print(f"查票完成，共发现 {len(all_results)} 个有票行程。")
     send_bark_push(all_results)
