@@ -10,7 +10,7 @@ from playwright.async_api import async_playwright
 
 BARK_KEY = os.environ.get('BARK_KEY', '')
 
-# 只保留秋假和春节
+# 🌟 你的假期查询计划 (去掉了春假)
 TRIP_CONFIGS = [
     {"name": "秋假", "go_start": "2026-11-13", "go_end": "2026-11-14", "back_start": "2026-11-17", "back_end": "2026-11-18"},
     {"name": "春节", "go_start": "2027-02-07", "go_end": "2027-02-08", "back_start": "2027-02-13", "back_end": "2027-02-14"}
@@ -90,18 +90,13 @@ def main():
 
     my_origins = {"上海": "SHA", "无锡": "WUX", "南京": "NKG", "杭州": "HGH", "嘉兴": "JXS", "南通": "NTG", "常州": "CZX"}
     
-    # 🌟 核心修改点：在这里加入了西双版纳和北京
+    # 常规目的地名单
     my_targets = {
-        # 新疆
         "乌鲁木齐": "URC", "喀什": "KHG", "伊宁": "YIN", "库尔勒": "KRL", "阿克苏": "AKU", 
         "阿勒泰": "AAT", "库车": "KCA", "博乐": "BPL", "塔城": "TCG", "哈密": "HMI", 
         "昭苏": "ZFL", "富蕴": "FYN", "布尔津": "KJI", "吐鲁番": "TLQ", "若羌": "RQA",
-        # 西藏
         "拉萨": "LXA", "日喀则": "RKZ", "林芝": "LZY", "昌都": "BPX", "阿里": "NGQ",
-        # 🌟 新增：西双版纳
-        "西双版纳": "JHG",
-        # 🌟 新增：北京
-        "北京": "BJS"
+        "西双版纳": "JHG", "北京": "BJS"
     }
 
     go_routes, back_routes = [], []
@@ -114,7 +109,9 @@ def main():
     all_results = []
     request_count = 0
 
-    # 常规查票循环（已包含往返西双版纳和北京）
+    # ==========================================
+    # 1. 常规查票循环
+    # ==========================================
     for config in TRIP_CONFIGS:
         trip_name = config["name"]
         tasks = [
@@ -156,7 +153,54 @@ def main():
                         time.sleep(random.uniform(1.5, 3.0))
                     current_date += timedelta(days=7)
 
-    print(f"查票完成，共发现 {len(all_results)} 个有票行程。")
+    # ==========================================
+    # 2. 🌟 新增：秋假去程成都专线
+    # ==========================================
+    autumn_config = next((c for c in TRIP_CONFIGS if c["name"] == "秋假"), None)
+    if autumn_config:
+        print("\n开始查询秋假特殊航线：华东 -> 成都 (去程)")
+        chengdu_start = datetime.strptime(autumn_config["go_start"], "%Y-%m-%d")
+        chengdu_end = datetime.strptime(autumn_config["go_end"], "%Y-%m-%d")
+        
+        # 仅匹配华东出发飞成都
+        chengdu_routes = []
+        for o_name, o_code in my_origins.items():
+            if (o_code, "CTU") in valid_routes:
+                chengdu_routes.append((o_name, o_code, "成都", "CTU"))
+                
+        for dep_name, dep_code, arr_name, arr_code in chengdu_routes:
+            current_date = chengdu_start
+            while current_date <= chengdu_end:
+                date_str = current_date.strftime("%Y-%m-%d")
+                payload = {
+                    "channelCode": "NzcwMQ==", "depDate": date_str, "desCityCode": arr_code,
+                    "indexNo": "1", "oriCityCode": dep_code, "productCode": "YRDCCN0525",
+                    "routeType": "OW", "salesChannel": "NzcwMQ=="
+                }
+                try:
+                    res = requests.post(api_detail, headers=headers, json=payload, timeout=15)
+                    r_data = res.json()
+                    if r_data.get("success"):
+                        d_map = (r_data.get("data") or {}).get("redeemableDetailMap") or {}
+                        for check_dt, status in d_map.items():
+                            check_date_obj = datetime.strptime(check_dt, "%Y-%m-%d")
+                            if chengdu_start <= check_date_obj <= chengdu_end and status == "2":
+                                all_results.append({
+                                    "假期": "秋假", "出发地": dep_name, "目的地": arr_name,
+                                    "日期": check_dt, "行程": "去程"
+                                })
+                except Exception:
+                    pass
+                
+                request_count += 1
+                if request_count % 10 == 0:
+                    print("防封休息 5 秒...")
+                    time.sleep(5.0)
+                else:
+                    time.sleep(random.uniform(1.5, 3.0))
+                current_date += timedelta(days=7)
+
+    print(f"\n查票完成，共发现 {len(all_results)} 个有票行程。")
     send_bark_push(all_results)
 
 if __name__ == "__main__":
