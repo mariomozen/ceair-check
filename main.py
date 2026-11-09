@@ -10,7 +10,7 @@ from playwright.async_api import async_playwright
 
 BARK_KEY = os.environ.get('BARK_KEY', '')
 
-# 🌟 你的假期查询计划 (去掉了春假)
+# 假期查询计划
 TRIP_CONFIGS = [
     {"name": "秋假", "go_start": "2026-11-13", "go_end": "2026-11-14", "back_start": "2026-11-17", "back_end": "2026-11-18"},
     {"name": "春节", "go_start": "2027-02-07", "go_end": "2027-02-08", "back_start": "2027-02-13", "back_end": "2027-02-14"}
@@ -88,9 +88,12 @@ def main():
         print(f"获取白名单失败: {e}")
         return
 
-    my_origins = {"上海": "SHA", "无锡": "WUX", "南京": "NKG", "杭州": "HGH", "嘉兴": "JXS", "南通": "NTG", "常州": "CZX"}
+    # 🌟 核心修改：把上海拆成虹桥(SHA)和浦东(PVG)，并加入无锡等地
+    my_origins = {
+        "上海虹桥": "SHA", "上海浦东": "PVG", 
+        "无锡": "WUX", "南京": "NKG", "杭州": "HGH", "嘉兴": "JXS", "南通": "NTG", "常州": "CZX"
+    }
     
-    # 常规目的地名单
     my_targets = {
         "乌鲁木齐": "URC", "喀什": "KHG", "伊宁": "YIN", "库尔勒": "KRL", "阿克苏": "AKU", 
         "阿勒泰": "AAT", "库车": "KCA", "博乐": "BPL", "塔城": "TCG", "哈密": "HMI", 
@@ -109,9 +112,7 @@ def main():
     all_results = []
     request_count = 0
 
-    # ==========================================
     # 1. 常规查票循环
-    # ==========================================
     for config in TRIP_CONFIGS:
         trip_name = config["name"]
         tasks = [
@@ -153,16 +154,13 @@ def main():
                         time.sleep(random.uniform(1.5, 3.0))
                     current_date += timedelta(days=7)
 
-    # ==========================================
-    # 2. 🌟 新增：秋假去程成都专线
-    # ==========================================
+    # 2. 🌟 秋假去程成都专线
     autumn_config = next((c for c in TRIP_CONFIGS if c["name"] == "秋假"), None)
     if autumn_config:
         print("\n开始查询秋假特殊航线：华东 -> 成都 (去程)")
         chengdu_start = datetime.strptime(autumn_config["go_start"], "%Y-%m-%d")
         chengdu_end = datetime.strptime(autumn_config["go_end"], "%Y-%m-%d")
         
-        # 仅匹配华东出发飞成都
         chengdu_routes = []
         for o_name, o_code in my_origins.items():
             if (o_code, "CTU") in valid_routes:
