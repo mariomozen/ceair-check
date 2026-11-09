@@ -62,7 +62,7 @@ async def get_auto_cookie():
     return "; ".join(cookies_list)
 
 def main():
-    print("开始云端查票...")
+    print("开始云端查票（暴力直查版，无视残缺白名单）...")
     cookie_str = asyncio.run(get_auto_cookie())
     if not cookie_str: return
 
@@ -74,26 +74,13 @@ def main():
         "Origin": "https://ecactivity.ceair.com"
     }
 
-    # 获取白名单
-    api_url = "https://ecskgateway.ceair.com/openApi/redeemable/queryRedeemableRouteListV2"
-    payload = {"channelCode": "NzcwMQ==", "flightType": "D", "productCode": "YRDCCN0525", "salesChannel": "NzcwMQ=="}
-    valid_routes = set()
-    try:
-        res = requests.post(api_url, headers=headers, json=payload, timeout=15)
-        if res.json().get("success"):
-            for item in res.json().get("data", {}).get("redeemableRouteList", []):
-                if item.get("oriCityCode") and item.get("desCityCode"):
-                    valid_routes.add((item.get("oriCityCode"), item.get("desCityCode")))
-    except Exception as e:
-        print(f"获取白名单失败: {e}")
-        return
-
-    # 🌟 核心修改：把上海拆成虹桥(SHA)和浦东(PVG)，并加入无锡等地
+    # 拆分上海虹桥(SHA)和上海浦东(PVG)
     my_origins = {
         "上海虹桥": "SHA", "上海浦东": "PVG", 
         "无锡": "WUX", "南京": "NKG", "杭州": "HGH", "嘉兴": "JXS", "南通": "NTG", "常州": "CZX"
     }
     
+    # 目标目的地
     my_targets = {
         "乌鲁木齐": "URC", "喀什": "KHG", "伊宁": "YIN", "库尔勒": "KRL", "阿克苏": "AKU", 
         "阿勒泰": "AAT", "库车": "KCA", "博乐": "BPL", "塔城": "TCG", "哈密": "HMI", 
@@ -102,11 +89,12 @@ def main():
         "西双版纳": "JHG", "北京": "BJS"
     }
 
+    # 直接生成所有的排列组合，不再经过白名单
     go_routes, back_routes = [], []
     for o_name, o_code in my_origins.items():
         for t_name, t_code in my_targets.items():
-            if (o_code, t_code) in valid_routes: go_routes.append((o_name, o_code, t_name, t_code))
-            if (t_code, o_code) in valid_routes: back_routes.append((t_name, t_code, o_name, o_code))
+            go_routes.append((o_name, o_code, t_name, t_code))
+            back_routes.append((t_name, t_code, o_name, o_code))
 
     api_detail = "https://ecskgateway.ceair.com/openApi/redeemable/queryRedeemableDetailNew"
     all_results = []
@@ -154,7 +142,7 @@ def main():
                         time.sleep(random.uniform(1.5, 3.0))
                     current_date += timedelta(days=7)
 
-    # 2. 🌟 秋假去程成都专线
+    # 2. 秋假去程成都专线
     autumn_config = next((c for c in TRIP_CONFIGS if c["name"] == "秋假"), None)
     if autumn_config:
         print("\n开始查询秋假特殊航线：华东 -> 成都 (去程)")
@@ -163,8 +151,7 @@ def main():
         
         chengdu_routes = []
         for o_name, o_code in my_origins.items():
-            if (o_code, "CTU") in valid_routes:
-                chengdu_routes.append((o_name, o_code, "成都", "CTU"))
+            chengdu_routes.append((o_name, o_code, "成都", "CTU"))
                 
         for dep_name, dep_code, arr_name, arr_code in chengdu_routes:
             current_date = chengdu_start
