@@ -84,7 +84,9 @@ def main():
     except Exception as e:
         print(f"⚠️ 获取白名单失败: {e}")
 
-    my_origins = {"上海虹桥": "SHA", "上海浦东": "PVG", "无锡": "WUX", "南京": "NKG", "杭州": "HGH", "嘉兴": "JXS", "南通": "NTG", "常州": "CZX"}
+    # 统一定义为上海（SHA）
+    my_origins = {"上海": "SHA", "无锡": "WUX", "南京": "NKG", "杭州": "HGH", "嘉兴": "JXS", "南通": "NTG", "常州": "CZX"}
+    
     my_targets = {
         "乌鲁木齐": "URC", "喀什": "KHG", "伊宁": "YIN", "库尔勒": "KRL", "阿克苏": "AKU", 
         "阿勒泰": "AAT", "库车": "KCA", "博乐": "BPL", "塔城": "TCG", "哈密": "HMI", 
@@ -98,9 +100,10 @@ def main():
     
     for o_name, o_code in my_origins.items():
         for t_name, t_code in my_targets.items():
-            if not valid_routes or (o_code, t_code) in valid_routes or o_code == "PVG" or t_code == "PVG":
+            # 逻辑：白名单里有，或者只要沾了“上海”的边，就强制查！
+            if not valid_routes or (o_code, t_code) in valid_routes or o_code == "SHA" or t_code == "SHA":
                 go_routes.append((o_name, o_code, t_name, t_code))
-            if not valid_routes or (t_code, o_code) in valid_routes or o_code == "PVG" or t_code == "PVG":
+            if not valid_routes or (t_code, o_code) in valid_routes or o_code == "SHA" or t_code == "SHA":
                 back_routes.append((t_name, t_code, o_name, o_code))
 
     api_detail = "https://ecskgateway.ceair.com/openApi/redeemable/queryRedeemableDetailNew"
@@ -148,6 +151,7 @@ def main():
                         time.sleep(random.uniform(1.0, 2.0))
                     current_date += timedelta(days=7)
 
+    # 秋假去成都专线
     autumn_config = next((c for c in TRIP_CONFIGS if c["name"] == "秋假"), None)
     if autumn_config:
         chengdu_start = datetime.strptime(autumn_config["go_start"], "%Y-%m-%d")
