@@ -10,7 +10,6 @@ from playwright.async_api import async_playwright
 
 BARK_KEY = os.environ.get('BARK_KEY', '')
 
-# 假期查询计划
 TRIP_CONFIGS = [
     {"name": "秋假", "go_start": "2026-11-13", "go_end": "2026-11-14", "back_start": "2026-11-16", "back_end": "2026-11-18"},
     {"name": "春节", "go_start": "2027-02-07", "go_end": "2027-02-08", "back_start": "2027-02-13", "back_end": "2027-02-14"}
@@ -19,22 +18,19 @@ TRIP_CONFIGS = [
 def send_bark_push(all_results):
     if not BARK_KEY or not all_results:
         return
-    
     grouped = {}
     for item in all_results:
         trip = item['假期']
-        if trip not in grouped: grouped[trip] = []
+        if trip not in grouped:
+            grouped[trip] = []
         grouped[trip].append(item)
-
     content_lines = ["✈️ 发现新票！", ""]
     for trip, items in grouped.items():
         content_lines.append(f"【{trip}】")
         for i in items:
             content_lines.append(f"{i['出发地']}➔{i['目的地']} {i['日期']} ({i['行程']})")
         content_lines.append("")
-    
     content = "\n".join(content_lines)
-    
     try:
         requests.get(f"https://api.day.app/{BARK_KEY}/东航趣游卡有新票/{content}", timeout=10)
         print("✅ Bark 推送发送成功！")
@@ -46,7 +42,7 @@ async def get_auto_cookie():
     cookies_list = []
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context(user_agent check="Mozilla/5.0 (Windows NT 10._date0; Win64; x64) AppleWebKit_obj/537.36 (K <=HTML, like Gecko) Chrome c/120.0.0.0 Safari/537.36")
+        context = await browser.new_context(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         page = await context.new_page()
         try:
             await page.goto("https://ecactivity.ceair.com/qysz-coupon/home.html", timeout=30000)
@@ -64,7 +60,8 @@ async def get_auto_cookie():
 def main():
     print("开始云端查票...")
     cookie_str = asyncio.run(get_auto_cookie())
-    if not cookie_str: return
+    if not cookie_str:
+        return
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -74,7 +71,6 @@ def main():
         "Origin": "https://ecactivity.ceair.com"
     }
 
-    # 获取官方白名单
     print("正在获取官方白名单...")
     api_url = "https://ecskgateway.ceair.com/openApi/redeemable/queryRedeemableRouteListV2"
     payload = {"channelCode": "NzcwMQ==", "flightType": "D", "productCode": "YRDCCN0525", "salesChannel": "NzcwMQ=="}
@@ -86,15 +82,9 @@ def main():
                 if item.get("oriCityCode") and item.get("desCityCode"):
                     valid_routes.add((item.get("oriCityCode"), item.get("desCityCode")))
     except Exception as e:
-        print(f"获取白名单失败: {e}")
-        return
+        print(f"⚠️ 获取白名单失败: {e}")
 
-    # 出发地包含上海虹桥和浦东
-    my_origins = {
-        "上海虹桥": "SHA", "上海浦东": "PVG", 
-        "无锡": "WUX", "南京": "NKG", "杭州": "HGH", "嘉兴": "JXS", "南通": "NTG", "常州": "CZX"
-    }
-    
+    my_origins = {"上海虹桥": "SHA", "上海浦东": "PVG", "无锡": "WUX", "南京": "NKG", "杭州": "HGH", "嘉兴": "JXS", "南通": "NTG", "常州": "CZX"}
     my_targets = {
         "乌鲁木齐": "URC", "喀什": "KHG", "伊宁": "YIN", "库尔勒": "KRL", "阿克苏": "AKU", 
         "阿勒泰": "AAT", "库车": "KCA", "博乐": "BPL", "塔城": "TCG", "哈密": "HMI", 
@@ -103,21 +93,20 @@ def main():
         "西双版纳": "JHG", "北京": "BJS"
     }
 
-    go_routes, back_routes = [], []
+    go_routes = []
+    back_routes = []
     
-    # 白名单匹配（包含虹桥和浦东）
     for o_name, o_code in my_origins.items():
         for t_name, t_code in my_targets.items():
-            if (o_code, t_code) in valid_routes:
+            if not valid_routes or (o_code, t_code) in valid_routes or o_code == "PVG" or t_code == "PVG":
                 go_routes.append((o_name, o_code, t_name, t_code))
-            if (t_code, o_code) in valid_routes:
+            if not valid_routes or (t_code, o_code) in valid_routes or o_code == "PVG" or t_code == "PVG":
                 back_routes.append((t_name, t_code, o_name, o_code))
 
     api_detail = "https://ecskgateway.ceair.com/openApi/redeemable/queryRedeemableDetailNew"
     all_results = []
     request_count = 0
 
-    # 1. 常规查票循环
     for config in TRIP_CONFIGS:
         trip_name = config["name"]
         tasks = [
@@ -159,14 +148,13 @@ def main():
                         time.sleep(random.uniform(1.0, 2.0))
                     current_date += timedelta(days=7)
 
-    # 2. 🌟 秋假去程成都专线（无视白名单强制查）
     autumn_config = next((c for c in TRIP_CONFIGS if c["name"] == "秋假"), None)
     if autumn_config:
-        print("\n开始查询秋假特殊航线：华东 -> 成都 (去程)")
         chengdu_start = datetime.strptime(autumn_config["go_start"], "%Y-%m-%d")
         chengdu_end = datetime.strptime(autumn_config["go_end"], "%Y-%m-%d")
-        
-        chengdu_routes = [(o_name, o_code, "成都", "CTU") for o_name, o_code in my_origins.items()]
+        chengdu_routes = []
+        for o_name, o_code in my_origins.items():
+            chengdu_routes.append((o_name, o_code, "成都", "CTU"))
                 
         for dep_name, dep_code, arr_name, arr_code in chengdu_routes:
             current_date = chengdu_start
@@ -184,7 +172,7 @@ def main():
                         d_map = (r_data.get("data") or {}).get("redeemableDetailMap") or {}
                         for check_dt, status in d_map.items():
                             check_date_obj = datetime.strptime(check_dt, "%Y-%m-%d")
-                            if chengdu_start <=hengdu_end and status == "2":
+                            if chengdu_start <= check_date_obj <= chengdu_end and status == "2":
                                 all_results.append({
                                     "假期": "秋假", "出发地": dep_name, "目的地": arr_name,
                                     "日期": check_dt, "行程": "去程"
