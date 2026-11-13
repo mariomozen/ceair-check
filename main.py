@@ -10,27 +10,37 @@ from playwright.async_api import async_playwright
 
 BARK_KEY = os.environ.get('BARK_KEY', '')
 
+# ==========================================
+# 🌟 云端假期查询计划 (已删除秋假，清明改为春假)
+# ==========================================
 TRIP_CONFIGS = [
-    {"name": "秋假", "go_start": "2026-11-13", "go_end": "2026-11-14", "back_start": "2026-11-16", "back_end": "2026-11-18"},
-    {"name": "春节", "go_start": "2027-02-07", "go_end": "2027-02-08", "back_start": "2027-02-13", "back_end": "2027-02-14"}
+    {"name": "春节", "go_start": "2027-02-07", "go_end": "2027-02-08", "back_start": "2027-02-13", "back_end": "2027-02-14"},
+    {"name": "春假", "go_start": "2027-03-31", "go_end": "2027-04-01", "back_start": "2027-04-04", "back_end": "2027-04-05"},
+    {"name": "五一", "go_start": "2027-04-30", "go_end": "2027-05-01", "back_start": "2027-05-04", "back_end": "2027-05-05"},
+    {"name": "国庆", "go_start": "2027-09-30", "go_end": "2027-10-01", "back_start": "2027-10-07", "back_end": "2027-10-08"}
 ]
+# ==========================================
 
 def send_bark_push(all_results):
     if not BARK_KEY or not all_results:
         return
+    
     grouped = {}
     for item in all_results:
         trip = item['假期']
         if trip not in grouped:
             grouped[trip] = []
         grouped[trip].append(item)
+
     content_lines = ["✈️ 发现新票！", ""]
     for trip, items in grouped.items():
         content_lines.append(f"【{trip}】")
         for i in items:
             content_lines.append(f"{i['出发地']}➔{i['目的地']} {i['日期']} ({i['行程']})")
         content_lines.append("")
+    
     content = "\n".join(content_lines)
+    
     try:
         requests.get(f"https://api.day.app/{BARK_KEY}/东航趣游卡有新票/{content}", timeout=10)
         print("✅ Bark 推送发送成功！")
@@ -87,20 +97,21 @@ def main():
     # 统一定义为上海（SHA）
     my_origins = {"上海": "SHA", "无锡": "WUX", "南京": "NKG", "杭州": "HGH", "嘉兴": "JXS", "南通": "NTG", "常州": "CZX"}
     
+    # 包含北京、西双版纳、成都等所有你想要的目标
     my_targets = {
         "乌鲁木齐": "URC", "喀什": "KHG", "伊宁": "YIN", "库尔勒": "KRL", "阿克苏": "AKU", 
         "阿勒泰": "AAT", "库车": "KCA", "博乐": "BPL", "塔城": "TCG", "哈密": "HMI", 
         "昭苏": "ZFL", "富蕴": "FYN", "布尔津": "KJI", "吐鲁番": "TLQ", "若羌": "RQA",
         "拉萨": "LXA", "日喀则": "RKZ", "林芝": "LZY", "昌都": "BPX", "阿里": "NGQ",
-        "西双版纳": "JHG", "北京": "BJS"
+        "西双版纳": "JHG", "北京": "BJS", "成都": "CTU"
     }
 
     go_routes = []
     back_routes = []
     
+    # 逻辑：白名单里有，或者只要沾了“上海”的边，就强制查！
     for o_name, o_code in my_origins.items():
         for t_name, t_code in my_targets.items():
-            # 逻辑：白名单里有，或者只要沾了“上海”的边，就强制查！
             if not valid_routes or (o_code, t_code) in valid_routes or o_code == "SHA" or t_code == "SHA":
                 go_routes.append((o_name, o_code, t_name, t_code))
             if not valid_routes or (t_code, o_code) in valid_routes or o_code == "SHA" or t_code == "SHA":
@@ -150,43 +161,6 @@ def main():
                     else:
                         time.sleep(random.uniform(1.0, 2.0))
                     current_date += timedelta(days=7)
-
-    # 秋假去成都专线
-    autumn_config = next((c for c in TRIP_CONFIGS if c["name"] == "秋假"), None)
-    if autumn_config:
-        chengdu_start = datetime.strptime(autumn_config["go_start"], "%Y-%m-%d")
-        chengdu_end = datetime.strptime(autumn_config["go_end"], "%Y-%m-%d")
-        chengdu_routes = []
-        for o_name, o_code in my_origins.items():
-            chengdu_routes.append((o_name, o_code, "成都", "CTU"))
-                
-        for dep_name, dep_code, arr_name, arr_code in chengdu_routes:
-            current_date = chengdu_start
-            while current_date <= chengdu_end:
-                date_str = current_date.strftime("%Y-%m-%d")
-                payload = {
-                    "channelCode": "NzcwMQ==", "depDate": date_str, "desCityCode": arr_code,
-                    "indexNo": "1", "oriCityCode": dep_code, "productCode": "YRDCCN0525",
-                    "routeType": "OW", "salesChannel": "NzcwMQ=="
-                }
-                try:
-                    res = requests.post(api_detail, headers=headers, json=payload, timeout=15)
-                    r_data = res.json()
-                    if r_data.get("success"):
-                        d_map = (r_data.get("data") or {}).get("redeemableDetailMap") or {}
-                        for check_dt, status in d_map.items():
-                            check_date_obj = datetime.strptime(check_dt, "%Y-%m-%d")
-                            if chengdu_start <= check_date_obj <= chengdu_end and status == "2":
-                                all_results.append({
-                                    "假期": "秋假", "出发地": dep_name, "目的地": arr_name,
-                                    "日期": check_dt, "行程": "去程"
-                                })
-                except Exception:
-                    pass
-                
-                request_count += 1
-                time.sleep(random.uniform(1.0, 2.0))
-                current_date += timedelta(days=7)
 
     print(f"\n查票完成，共发现 {len(all_results)} 个有票行程。")
     send_bark_push(all_results)
